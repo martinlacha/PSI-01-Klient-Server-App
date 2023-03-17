@@ -79,9 +79,10 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	int n;
+	int n, buffer_len;
 	socklen_t len = sizeof(client);
 	printf("---------------------------Start server---------------------------\n");
+	printf("Stop server using shortcut: Crtl + C\n");
 	while (1) {
 		printf("Wait for client...\n");
 		client_sock = accept(socket_desc, (struct sockaddr*)&client, &len);
@@ -93,10 +94,16 @@ int main(int argc, char* argv[]) {
 		printf("New client connected (id:%d).\n", client_sock);
 		memset(&buffer, '\0', MAXLEN);
 		n = read(client_sock, &buffer, MAXLEN);
-		printf("Income message: %s", buffer);
+
+		// Get lenght of message from first byte of message
+		buffer_len = (int) buffer[0];
+		memmove(buffer, buffer + 1, buffer_len);
+		buffer[buffer_len] = '\0';
+
+		printf("Income message: leght=%d text=%s\n", buffer_len, buffer);
 		reverse_string(buffer);
 		n = write(client_sock, &buffer, MAXLEN);
-		printf("Response msg: %s", buffer);
+		printf("Response msg: %s\n", buffer);
 		if(n < 0) {
 			printf("Error: %s\n", strerror(errno));
 			exit(EXIT_FAILURE);
@@ -104,6 +111,7 @@ int main(int argc, char* argv[]) {
 		printf("Close client socket.\n");
 		close(client_sock);
 		printf("---------------------------------------------------\n");
+		printf("Stop server using shortcut: Crtl + C\n");
 	}
 	printf("Close socket.\n");
 	close(socket_desc);

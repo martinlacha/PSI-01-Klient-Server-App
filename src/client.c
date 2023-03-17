@@ -53,15 +53,23 @@ int main(int argc, char **argv) {
 	server.sin_port        = htons(port);        // Server's Port
 	server.sin_addr.s_addr = server_address;     // Server's Address
 
+	// Connect socket to server
 	ret_code = connect(sockfd, (struct sockaddr_in *)&server, sizeof(server));
 	if (ret_code) {
 		printf("Can not connect to server (ret_code: %d).\n", ret_code);
 		exit(EXIT_FAILURE);
 	}
+
 	int n = 0, last_index = strlen(argv[3]);
 	memset(&buffer, '\0', MAXLEN);
 	strncpy(buffer, argv[3], last_index);
-	buffer[last_index] = '\n';
+	//Move whole string by one byte and insert lenght of string at the first byte of string
+	memmove(buffer + 1, buffer, last_index);
+
+	printf("Add at begin of message: %s lenght %d which is %c character.\n", buffer, last_index, (char) last_index);
+	buffer[0] = (char) last_index;
+
+	buffer[strlen(buffer)] = '\n';
 	printf("Sending to server(ret_code: %d): %s (len: %d)\n", sockfd, buffer, last_index);
 	n = write(sockfd, &buffer, MAXLEN);
 	printf("Sended chars: %d\n", n);
