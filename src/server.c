@@ -10,16 +10,17 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <threads.h>
+#include <pthread.h>
 #include <errno.h>
 
 #define MAXLEN 255
 #define USER_INPUT_LEN 64
+#define THREAD_COUNT 8
 
 void reverse_string(char *buffer) {
     int len = strlen(buffer);
     char *left = buffer;
-    char *right = buffer + len - 2;
+    char *right = buffer + len - 1;
 	//printf("Before reverse: %s (%d)\n", buffer, strlen(buffer));
     while (left < right) {
         char tmp = *left;
@@ -31,9 +32,36 @@ void reverse_string(char *buffer) {
 	//printf("After reverse: %s (%d)\n", buffer, strlen(buffer));
 }
 
+void response_client_tread(int client_sock) {
+	int n, buffer_len;
+	char buffer[MAXLEN];
+	printf("Create thread for socket: %d\n", client_sock);
+
+	printf("New client connected (id:%d).\n", client_sock);
+		memset(&buffer, '\0', MAXLEN);
+		n = read(client_sock, &buffer, MAXLEN);
+
+		// Get lenght of message from first byte of message
+		buffer_len = (int) buffer[0];
+		memmove(buffer, buffer + 1, buffer_len);
+		buffer[buffer_len] = '\0';
+
+		printf("Income message: leght=%d text=%s\n", buffer_len, buffer);
+		reverse_string(buffer);
+		n = write(client_sock, &buffer, MAXLEN);
+		printf("Response msg: %s\n", buffer);
+		if(n < 0) {
+			printf("Error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+	printf("Close client socket with id %d.\n", client_sock);
+	close(client_sock);
+	printf("Destroy thread for socket: %d\n", client_sock);
+}
+
 int main(int argc, char* argv[]) {
-	int socket_desc = 0, client_sock = 0, port = 0, optval = 1;
-	char buffer[MAXLEN], user_input[USER_INPUT_LEN];
+	int socket_desc = 0, client_sock = 0, port = 0, optval = 1, index = 0;
 	char *p_end;
 	struct sockaddr_in server, client;
 
@@ -79,7 +107,6 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	int n, buffer_len;
 	socklen_t len = sizeof(client);
 	printf("---------------------------Start server---------------------------\n");
 	printf("Stop server using shortcut: Crtl + C\n");
@@ -91,25 +118,11 @@ int main(int argc, char* argv[]) {
 			printf("Error: %s\n", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		printf("New client connected (id:%d).\n", client_sock);
-		memset(&buffer, '\0', MAXLEN);
-		n = read(client_sock, &buffer, MAXLEN);
 
-		// Get lenght of message from first byte of message
-		buffer_len = (int) buffer[0];
-		memmove(buffer, buffer + 1, buffer_len);
-		buffer[buffer_len] = '\0';
-
-		printf("Income message: leght=%d text=%s\n", buffer_len, buffer);
-		reverse_string(buffer);
-		n = write(client_sock, &buffer, MAXLEN);
-		printf("Response msg: %s\n", buffer);
-		if(n < 0) {
-			printf("Error: %s\n", strerror(errno));
-			exit(EXIT_FAILURE);
-		}
-		printf("Close client socket.\n");
-		close(client_sock);
+		// Create thread for new connected client
+		pthread_t threads[THREAD_COUNT];
+		int error = pthread_create(&threads[index], NULL, &response_client_tread, client_sock);
+		index = (index++) % THREAD_COUNT;
 		printf("---------------------------------------------------\n");
 		printf("Stop server using shortcut: Crtl + C\n");
 	}
